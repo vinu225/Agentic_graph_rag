@@ -1,0 +1,81 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+*.spec
+
+# ─── Virtual Environments ─────────────────────────────────────────────────────
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ─── SQLite Databases (large, binary, regenerable) ────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ─── Evaluation Outputs (regenerable, not source code) ────────────────────────
+results_rag.jsonl
+results_graphrag.jsonl
+results_agentic.jsonl
+results_*.jsonl
+
+# ─── IDE & Editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── Jupyter Notebooks (checkpoints) ──────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ─── Test & Coverage Artifacts ────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.tox/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Secrets / Keys (never commit) ───────────────────────────────────────────
+.env.local
+.env.*.local
+secrets.json
+*.pem
+*.key
+
+# ─── Temp / scratch files left over from development ──────────────────────────
+temp_*.py
+create_rag_project.py
+verify_step*.py
+scratch/
+
+# ─── Dataset / Corpus (large downloaded files) ────────────────────────────────
+drive-download-*/
+
+# ─── OS ───────────────────────────────────────────────────────────────────────
+Desktop.ini
+ehthumbs.db
