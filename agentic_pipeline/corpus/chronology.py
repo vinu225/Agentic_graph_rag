@@ -4,7 +4,7 @@ Builds ordered sequences of Olympic Games editions to resolve relative-temporal 
 """
 
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Official historical sequence of Modern Summer and Winter Olympics
 SUMMER_OLYMPICS_CYCLE: List[Tuple[int, str]] = [

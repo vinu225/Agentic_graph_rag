@@ -6,6 +6,7 @@ Supports:
    with context budgeting and tool-calling format.
 """
 
+import re
 import json
 import logging
 import urllib.request
@@ -88,8 +89,10 @@ class MockLLM(BaseLLM):
 
 
 class OllamaLLM(BaseLLM):
-    """Connects to local Ollama instance via OpenAI-compatible endpoint.
-    Configured for Qwen models with thinking disabled during tool calls.
+    """Connects to local Ollama instance with thinking mode suppression.
+    Calls native /api/chat with think=False, falling back to /v1/chat/completions if 404.
+    Scrubs <think>...</think> from responses and ensures tool calls are parsed from
+    actual message content, never from leaked thinking blocks.
     """
     def __init__(
         self,
@@ -99,7 +102,132 @@ class OllamaLLM(BaseLLM):
     ):
         self.model_name = model_name
         self.api_base = api_base.rstrip("/")
+        if self.api_base.endswith("/v1"):
+            self.native_base = self.api_base[:-3]
+        else:
+            self.native_base = self.api_base
+        self.native_endpoint = f"{self.native_base}/api/chat"
+        self.v1_endpoint = f"{self.api_base}/chat/completions" if self.api_base.endswith("/v1") else f"{self.api_base}/v1/chat/completions"
         self.token_budget = token_budget
+
+    def _parse_tool_calls(
+        self,
+        raw_tools: List[Dict[str, Any]],
+        scrubbed_content: str
+    ) -> List[ToolCall]:
+        tool_calls: List[ToolCall] = []
+
+        if raw_tools:
+            for idx, t in enumerate(raw_tools):
+                func = t.get("function", {})
+                fn_name = func.get("name", "")
+                fn_args_raw = func.get("arguments", {})
+                if isinstance(fn_args_raw, str):
+                    try:
+                        fn_args = json.loads(fn_args_raw)
+                    except Exception:
+                        fn_args = {"raw": fn_args_raw}
+                elif isinstance(fn_args_raw, dict):
+                    fn_args = fn_args_raw
+                else:
+                    fn_args = {}
+
+                tool_calls.append(
+                    ToolCall(
+                        id=t.get("id", f"call_{idx}"),
+                        name=fn_name,
+                        arguments=fn_args
+                    )
+                )
+            return tool_calls
+
+        # Fallback: Parse tool calls from actual message content
+        # Note: scrubbed_content has ALREADY been stripped of any <think>...</think> blocks.
+        if not scrubbed_content:
+            return []
+
+        # Check for <tool_call> tags
+        tc_matches = re.findall(r"<tool_call>\s*(.*?)\s*</tool_call>", scrubbed_content, flags=re.DOTALL)
+        for idx, tc_text in enumerate(tc_matches):
+            try:
+                tc_json = json.loads(tc_text)
+                name = tc_json.get("name") or tc_json.get("function", {}).get("name")
+                args = tc_json.get("arguments") or tc_json.get("function", {}).get("arguments", {})
+                if name:
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except Exception:
+                            args = {"raw": args}
+                    tool_calls.append(ToolCall(id=f"call_content_{idx}", name=name, arguments=args))
+            except Exception:
+                pass
+
+        if tool_calls:
+            return tool_calls
+
+        # Check for ```json ... ``` blocks containing "name" and "arguments"
+        code_blocks = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", scrubbed_content, flags=re.DOTALL)
+        for idx, block in enumerate(code_blocks):
+            try:
+                tc_json = json.loads(block)
+                if "name" in tc_json and ("arguments" in tc_json or "parameters" in tc_json):
+                    name = tc_json["name"]
+                    args = tc_json.get("arguments", tc_json.get("parameters", {}))
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except Exception:
+                            args = {"raw": args}
+                    tool_calls.append(ToolCall(id=f"call_block_{idx}", name=name, arguments=args))
+            except Exception:
+                pass
+
+        return tool_calls
+
+    def _clean_content_after_tool_extraction(self, content: str) -> str:
+        cleaned = re.sub(r"<tool_call>.*?</tool_call>", "", content, flags=re.DOTALL)
+        cleaned = re.sub(r'```(?:json)?\s*\{.*?"name".*?\}\s*```', "", cleaned, flags=re.DOTALL)
+        return cleaned.strip()
+
+    def _format_messages_for_native(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        formatted = []
+        for msg in messages:
+            m = dict(msg)
+            if "tool_calls" in m and m["tool_calls"]:
+                tcs = []
+                for tc in m["tool_calls"]:
+                    tc_copy = dict(tc)
+                    if "function" in tc_copy:
+                        fn = dict(tc_copy["function"])
+                        if isinstance(fn.get("arguments"), str):
+                            try:
+                                fn["arguments"] = json.loads(fn["arguments"])
+                            except Exception:
+                                pass
+                        tc_copy["function"] = fn
+                    tcs.append(tc_copy)
+                m["tool_calls"] = tcs
+            formatted.append(m)
+        return formatted
+
+    def _format_messages_for_v1(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        formatted = []
+        for msg in messages:
+            m = dict(msg)
+            if "tool_calls" in m and m["tool_calls"]:
+                tcs = []
+                for tc in m["tool_calls"]:
+                    tc_copy = dict(tc)
+                    if "function" in tc_copy:
+                        fn = dict(tc_copy["function"])
+                        if isinstance(fn.get("arguments"), dict):
+                            fn["arguments"] = json.dumps(fn["arguments"])
+                        tc_copy["function"] = fn
+                    tcs.append(tc_copy)
+                m["tool_calls"] = tcs
+            formatted.append(m)
+        return formatted
 
     def generate(
         self,
@@ -108,44 +236,99 @@ class OllamaLLM(BaseLLM):
         temperature: float = 0.0,
         max_tokens: int = 1024,
     ) -> LLMResponse:
-        url = f"{self.api_base}/chat/completions"
-
-        payload: Dict[str, Any] = {
+        # 1. First attempt: native Ollama /api/chat with think=False explicitly
+        native_messages = self._format_messages_for_native(messages)
+        native_payload: Dict[str, Any] = {
             "model": self.model_name,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "stream": False
+            "messages": native_messages,
+            "stream": False,
+            "think": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+                "num_ctx": self.token_budget,
+            }
         }
-
-        # For Qwen3 models, pass flag to avoid verbose internal monologue on tool steps
-        payload["options"] = {
-            "num_ctx": self.token_budget,
-            "temperature": temperature,
-        }
-
         if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
+            native_payload["tools"] = tools
 
-        headers = {
-            "Content-Type": "application/json"
-        }
-
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers=headers,
+        native_req = urllib.request.Request(
+            self.native_endpoint,
+            data=json.dumps(native_payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
             method="POST"
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=120) as response:
+            with urllib.request.urlopen(native_req, timeout=120) as resp:
+                res_data = json.loads(resp.read().decode("utf-8"))
+
+            msg = res_data.get("message", {})
+            content = msg.get("content", "") or ""
+            # Strip any leaked <think> blocks as a safety net BEFORE any tool parsing
+            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+            content = re.sub(r"<think>.*", "", content, flags=re.DOTALL).strip()
+
+            raw_tools = msg.get("tool_calls") or []
+            tool_calls = self._parse_tool_calls(raw_tools, content)
+            if not raw_tools and tool_calls:
+                content = self._clean_content_after_tool_extraction(content)
+
+            prompt_tokens = res_data.get("prompt_eval_count", 0)
+            completion_tokens = res_data.get("eval_count", 0)
+            total_tokens = prompt_tokens + completion_tokens
+
+            return LLMResponse(
+                content=content if content else None,
+                tool_calls=tool_calls,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
+                raw_response=res_data
+            )
+        except urllib.error.HTTPError as he:
+            # Fallback to OpenAI-compatible endpoint if native /api/chat returns 404
+            if he.code != 404:
+                logger.error(f"Ollama native endpoint HTTP error {he.code}: {he}")
+                raise
+        except urllib.error.URLError as ue:
+            logger.error(f"Failed to connect to Ollama at {self.native_endpoint}: {ue}")
+            raise ConnectionError(
+                f"Could not connect to Ollama at {self.native_endpoint}. "
+                f"Ensure Ollama is running (`ollama serve`). Details: {ue}"
+            )
+
+        # 2. Fallback attempt: OpenAI-compatible /v1/chat/completions endpoint
+        v1_messages = self._format_messages_for_v1(messages)
+        v1_payload: Dict[str, Any] = {
+            "model": self.model_name,
+            "messages": v1_messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+            "options": {
+                "num_ctx": self.token_budget,
+                "temperature": temperature,
+            }
+        }
+        if tools:
+            v1_payload["tools"] = tools
+            v1_payload["tool_choice"] = "auto"
+
+        v1_req = urllib.request.Request(
+            self.v1_endpoint,
+            data=json.dumps(v1_payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+
+        try:
+            with urllib.request.urlopen(v1_req, timeout=120) as response:
                 res_data = json.loads(response.read().decode("utf-8"))
         except urllib.error.URLError as e:
-            logger.error(f"Failed to connect to Ollama at {url}: {e}")
+            logger.error(f"Failed to connect to Ollama at {self.v1_endpoint}: {e}")
             raise ConnectionError(
-                f"Could not connect to Ollama at {self.api_base}. "
+                f"Could not connect to Ollama at {self.v1_endpoint}. "
                 f"Ensure Ollama is running (`ollama serve`). Error: {e}"
             )
 
@@ -153,36 +336,26 @@ class OllamaLLM(BaseLLM):
         message = choice.get("message", {})
         usage = res_data.get("usage", {})
 
-        content = message.get("content")
-        raw_tools = message.get("tool_calls", [])
-        tool_calls: List[ToolCall] = []
+        content = message.get("content") or ""
+        # Strip any leaked <think> blocks BEFORE tool parsing
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        content = re.sub(r"<think>.*", "", content, flags=re.DOTALL).strip()
 
-        for idx, t in enumerate(raw_tools):
-            func = t.get("function", {})
-            fn_name = func.get("name", "")
-            fn_args_raw = func.get("arguments", "{}")
-            if isinstance(fn_args_raw, str):
-                try:
-                    fn_args = json.loads(fn_args_raw)
-                except Exception:
-                    fn_args = {"raw": fn_args_raw}
-            else:
-                fn_args = fn_args_raw
+        raw_tools = message.get("tool_calls") or []
+        tool_calls = self._parse_tool_calls(raw_tools, content)
+        if not raw_tools and tool_calls:
+            content = self._clean_content_after_tool_extraction(content)
 
-            tool_calls.append(
-                ToolCall(
-                    id=t.get("id", f"call_{idx}"),
-                    name=fn_name,
-                    arguments=fn_args
-                )
-            )
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
+        total_tokens = usage.get("total_tokens", prompt_tokens + completion_tokens)
 
         return LLMResponse(
-            content=content,
+            content=content if content else None,
             tool_calls=tool_calls,
-            prompt_tokens=usage.get("prompt_tokens", 0),
-            completion_tokens=usage.get("completion_tokens", 0),
-            total_tokens=usage.get("total_tokens", 0),
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
             raw_response=res_data
         )
 

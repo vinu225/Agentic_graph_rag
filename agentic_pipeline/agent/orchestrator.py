@@ -183,7 +183,7 @@ class AgenticOrchestrator:
                     tool_input=tool_call.arguments,
                     tool_output=tool_output,
                     tokens=llm_resp.total_tokens,
-                    duration_s=call_duration
+                    duration_s=time.time() - step_start
                 ))
 
                 # Update conversation history with assistant tool call and tool result

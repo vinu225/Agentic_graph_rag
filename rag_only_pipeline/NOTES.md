@@ -9,10 +9,16 @@ This document logs empirical findings, structural failure modes, and retrieval c
   * **Hit@8** was **100.0%** for both `aggregation` and `superlative` questions.
   * **Frac@8** was only **54.3%** for `aggregation` and **61.3%** for `superlative`.
 * **Root Cause**: Many aggregation questions (e.g. *"how many shooting events at the 2004 Summer Olympics had more than 37 competitors?"*) and superlative questions have 10 to 45 gold candidate documents in the corpus.
-* **Empirical Confirmation on Eval Sample (`pub-001`, `pub-003`)**:
-  * **`pub-001`**: Gold answer = 5, got = 4 (under-counted because only 4 relevant candidate documents were retrieved within the $k=8$ budget).
-  * **`pub-003`**: Gold answer = 8, got = 3 (under-counted because only 3 relevant candidate documents were retrieved within the $k=8$ budget).
-  * **Key Takeaway**: Directly confirms the Frac@8 retrieval gap predicted from the Step 2 recall benchmark. The model correctly reasons over what it was given, but cannot synthesize evidence that was truncated by top-$k$ retrieval.
+* **Empirical Confirmation on Eval Sample**:
+  * **Manifestation A — Partial / Undercounting (`pub-001`, `pub-003`, `pub-010`)**:
+    * **`pub-001`**: Gold answer = 5, got = 4 (under-counted because only 4 relevant candidate documents were retrieved within the $k=8$ budget).
+    * **`pub-003`**: Gold answer = 8, got = 3 (under-counted because only 3 relevant candidate documents were retrieved within the $k=8$ budget).
+    * **`pub-010`**: Gold answer = 4, got = 2 (under-counted; correctly evaluated the 4 retrieved cycling events but missed the 2 outside top-8).
+    * **Mechanism**: The model correctly reasons over what it was given, but cannot synthesize evidence that was truncated by top-$k$ retrieval.
+  * **Manifestation B — Honest Refusal / "not found in corpus" (`pub-004`)**:
+    * **`pub-004`**: Question asks which 2008 athletics event had the highest number of competitors (Gold: *"Athletics at the 2008 Summer Olympics – Men's marathon"*).
+    * **Behavior**: The marathon chunk was entirely ranked outside the top 8 by lexical BM25. Finding no qualifying candidate in the retrieved context, the LLM adhered strictly to grounding instructions and returned `"not found in corpus"` in 2.8s.
+    * **Divergence**: Both Manifestation A and B stem from the identical $k=8$ retrieval gap, but manifest differently depending on whether partial evidence allows a plausible (under-counted) answer or leaves the model with zero valid candidates (honest refusal).
 * **Architectural Comparison**:
   * **RAG**: Fails to provide complete candidate sets due to fixed context window and top-$k$ chunk truncation.
   * **Agentic GraphRAG**: Uses deterministic tool `get_events(games="2004 Summer", sport="Shooting", limit=1000)` followed by `count_or_rank(metric="competitors", operation="count", threshold=37, threshold_op="gt")` to compute exact counts across all 17 candidate events directly in the graph.

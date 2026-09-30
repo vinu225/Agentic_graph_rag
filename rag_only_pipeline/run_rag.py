@@ -32,10 +32,10 @@ from rag_only_pipeline.pipeline import RAGPipeline
 from rag_only_pipeline.retrieval.bm25_index import BM25Index
 
 
-def run_single(question: str, k: int, pipeline: RAGPipeline) -> None:
+def run_single(question: str, k: int, pipeline: RAGPipeline, question_id: str = "adhoc") -> None:
     print(f"\nQuestion: {question}")
     print(f"Retrieving top-{k} chunks and generating answer...")
-    res = pipeline.run(question=question, question_id="adhoc", k=k)
+    res = pipeline.run(question=question, question_id=question_id, k=k)
     print(f"\nAnswer:         {res.answer}")
     print(f"Citations:      {res.citations}")
     print(f"Context Tokens: {res.context_tokens}")
@@ -108,6 +108,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="RAG Pipeline CLI Runner")
     parser.add_argument("--question", type=str, default=None,
                         help="A single question to run RAG on")
+    parser.add_argument("--qid", type=str, default=None,
+                        help="Run a specific question ID from eval_public.jsonl (e.g. pub-004)")
     parser.add_argument("--eval-sample", type=int, default=0, metavar="N",
                         help="Run first N questions from eval_public.jsonl")
     parser.add_argument("--k", type=int, default=DEFAULT_K,
@@ -142,7 +144,16 @@ def main() -> None:
     pipeline = RAGPipeline(index=index)
     output_path = Path(args.output)
 
-    if args.eval_sample > 0:
+    if args.qid:
+        with open(EVAL_PUBLIC_PATH, "r", encoding="utf-8") as f_in:
+            target = next((json.loads(l) for l in f_in if json.loads(l).get("qid") == args.qid), None)
+        if not target:
+            print(f"[Error] Question ID '{args.qid}' not found in {EVAL_PUBLIC_PATH}")
+            sys.exit(1)
+        print(f"\n[{target['qid']}] ({target.get('qtype', 'unknown')}) {target['question']}")
+        print(f"  Gold: {target.get('answer', [])}")
+        run_single(question=target["question"], k=args.k, pipeline=pipeline, question_id=target["qid"])
+    elif args.eval_sample > 0:
         run_eval_sample(
             num_questions=args.eval_sample,
             k=args.k,
