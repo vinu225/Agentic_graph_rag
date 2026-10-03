@@ -23,7 +23,7 @@ DEFAULT_TOKEN_BUDGET: int = int(os.getenv("TOKEN_BUDGET", "6000"))
 
 # Local Ollama LLM Configuration (OpenAI-compatible)
 OLLAMA_API_BASE: str = os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1")
-DEFAULT_OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen3:4b")
+DEFAULT_OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen3:8b")
 
 # TigerGraph Savanna Placeholders (to be connected in Step 7)
 TG_HOST: str = os.getenv("TG_HOST", "")
