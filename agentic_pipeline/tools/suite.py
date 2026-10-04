@@ -45,6 +45,7 @@ class ToolSuite:
         self,
         games: Optional[str] = None,
         sport: Optional[str] = None,
+        event_name: Optional[str] = None,
         venue: Optional[str] = None,
         date: Optional[str] = None,
         competitor_min: Optional[int] = None,
@@ -55,6 +56,7 @@ class ToolSuite:
         return self.graph.get_events(
             games=games,
             sport=sport,
+            event_name=event_name,
             venue=venue,
             date=date,
             competitor_min=competitor_min,
@@ -108,13 +110,34 @@ class ToolSuite:
         required_slots: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """Check whether gathered evidence is sufficient to answer the question."""
-        has_events = any(e.get("type") in ("events", "count_or_rank", "event_attributes") for e in evidence)
-        sufficient = has_events and len(evidence) > 0
+        valid_evidence = []
+        for e in evidence:
+            tool = e.get("tool") or e.get("type")
+            output = e.get("output")
+            if not output:
+                continue
+
+            if tool == "get_events":
+                if isinstance(output, dict) and output.get("returned_count", 0) > 0:
+                    valid_evidence.append(e)
+                elif isinstance(output, list) and len(output) > 0:
+                    valid_evidence.append(e)
+            elif tool == "count_or_rank":
+                if isinstance(output, dict) and (output.get("results") or output.get("count") is not None):
+                    valid_evidence.append(e)
+            elif tool == "get_event_attributes":
+                if isinstance(output, dict) and (output.get("doc_id") or output.get("title")):
+                    valid_evidence.append(e)
+            elif tool == "retrieve_chunks":
+                if isinstance(output, list) and len(output) > 0:
+                    valid_evidence.append(e)
+
+        sufficient = len(valid_evidence) > 0
         missing = [] if sufficient else (required_slots or ["event_data"])
         return {
             "sufficient": sufficient,
             "missing_slots": missing,
-            "evidence_count": len(evidence)
+            "evidence_count": len(valid_evidence)
         }
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
@@ -138,12 +161,13 @@ class ToolSuite:
                 "type": "function",
                 "function": {
                     "name": "get_events",
-                    "description": "Filters Olympic events by games edition, sport, venue, date, or competitor bounds.",
+                    "description": "Filters Olympic events by games edition, sport, event name, venue, date, or competitor bounds. Each event has a canonical 'title' (e.g. 'Sailing at the 2000 Summer Olympics – Soling') and 'event_name' subdiscipline.",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "games": {"type": "string", "description": "e.g. '2004 Summer', '2012 Summer', '2018 Winter'"},
                             "sport": {"type": "string", "description": "Sport name, e.g. 'Shooting', 'Biathlon', 'Athletics'"},
+                            "event_name": {"type": "string", "description": "Specific event name, e.g. 'men\'s 20 kilometres walk', 'Women\'s RS:X'"},
                             "venue": {"type": "string", "description": "Venue name, e.g. 'Olympic Weightlifting Gymnasium'"},
                             "date": {"type": "string", "description": "Specific date, e.g. '20 September 1988'"},
                             "competitor_min": {"type": "integer"},
@@ -171,7 +195,7 @@ class ToolSuite:
                 "type": "function",
                 "function": {
                     "name": "count_or_rank",
-                    "description": "Performs deterministic counts or rankings (highest/lowest/top-k) on retrieved events.",
+                    "description": "Performs deterministic counts or rankings (highest/lowest/top-k) on retrieved events. Returns ranked events with their canonical 'title' and competitor/nation metrics.",
                     "parameters": {
                         "type": "object",
                         "properties": {

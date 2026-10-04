@@ -15,6 +15,7 @@ class GraphInterface(ABC):
         self,
         games: Optional[str] = None,
         sport: Optional[str] = None,
+        event_name: Optional[str] = None,
         venue: Optional[str] = None,
         date: Optional[str] = None,
         competitor_min: Optional[int] = None,

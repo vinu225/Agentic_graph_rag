@@ -3,12 +3,25 @@ Stores normalized Olympic events, infobox attributes, and chunks.
 Implements get_events, get_event_attributes, count_or_rank, get_chunks.
 """
 
+import re
 import json
 import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from agentic_pipeline.graph.base import GraphInterface
+
+
+KNOWN_SPORTS = [
+    "Alpine skiing", "Cross-country skiing", "Freestyle skiing", "Speed skating",
+    "Figure skating", "Short track speed skating", "Ski jumping", "Nordic combined",
+    "Biathlon", "Bobsleigh", "Skeleton", "Luge", "Curling", "Ice hockey",
+    "Athletics", "Shooting", "Sailing", "Cycling", "Canoeing", "Fencing", "Judo",
+    "Swimming", "Weightlifting", "Gymnastics", "Rowing", "Boxing", "Archery",
+    "Badminton", "Table tennis", "Taekwondo", "Triathlon", "Equestrian",
+    "Modern pentathlon", "Diving", "Synchronized swimming", "Water polo",
+    "Volleyball", "Basketball", "Handball", "Football", "Hockey", "Tennis", "Wrestling"
+]
 
 
 class SQLiteGraph(GraphInterface):
@@ -121,6 +134,7 @@ class SQLiteGraph(GraphInterface):
         self,
         games: Optional[str] = None,
         sport: Optional[str] = None,
+        event_name: Optional[str] = None,
         venue: Optional[str] = None,
         date: Optional[str] = None,
         competitor_min: Optional[int] = None,
@@ -128,6 +142,19 @@ class SQLiteGraph(GraphInterface):
         limit: int = 200,
     ) -> List[Dict[str, Any]]:
         """Filter and retrieve event entities with structured constraints."""
+        # Auto-extract recognized sport names out of event_name if present
+        if event_name:
+            if not sport:
+                for s in KNOWN_SPORTS:
+                    if re.search(r"\b" + re.escape(s) + r"\b", event_name, re.IGNORECASE):
+                        sport = s
+                        event_name = re.sub(r"\b" + re.escape(s) + r"\b", "", event_name, flags=re.IGNORECASE).strip()
+                        break
+            else:
+                event_name = re.sub(r"\b" + re.escape(sport) + r"\b", "", event_name, flags=re.IGNORECASE).strip()
+            
+            event_name = re.sub(r"^[–—\-\s,]+|[–—\-\s,]+$", "", event_name).strip() or None
+
         query = "SELECT * FROM events WHERE 1=1"
         params: List[Any] = []
 
@@ -137,6 +164,9 @@ class SQLiteGraph(GraphInterface):
         if sport:
             query += " AND (sport LIKE ? OR title LIKE ?)"
             params.extend([f"%{sport}%", f"%{sport}%"])
+        if event_name:
+            query += " AND (event_name LIKE ? OR title LIKE ?)"
+            params.extend([f"%{event_name}%", f"%{event_name}%"])
         if venue:
             query += " AND venue LIKE ?"
             params.append(f"%{venue}%")
@@ -171,6 +201,32 @@ class SQLiteGraph(GraphInterface):
             """, (event_id_or_title, event_id_or_title, f"%{event_id_or_title}%")).fetchone()
 
             if not row:
+                # General keyword fallback with apostrophe and symbol normalization
+                clean_input = event_id_or_title.replace("’", "'").replace("–", "-").replace("—", "-")
+                stop_words = {"at", "the", "in", "event", "of", "and", "or", "for", "to", "summer", "winter", "olympics"}
+                tokens = clean_input.split()
+                meaningful = []
+                for t in tokens:
+                    w = re.sub(r"^[^\w]+|[^\w]+$", "", t)
+                    if w.lower() not in stop_words and len(w) >= 2:
+                        # Normalize possessive / trailing 's (e.g. "women's" -> "women")
+                        if w.lower().endswith("'s") and len(w) > 3:
+                            meaningful.append(w[:-2])
+                        else:
+                            meaningful.append(w)
+                
+                # Also include year if present
+                year_match = re.search(r"\b(19\d\d|20\d\d)\b", event_id_or_title)
+                if year_match and year_match.group(1) not in meaningful:
+                    meaningful.insert(0, year_match.group(1))
+
+                if meaningful:
+                    where_clauses = ["title LIKE ?" for _ in meaningful]
+                    query = f"SELECT * FROM events WHERE {' AND '.join(where_clauses)} LIMIT 1"
+                    params = [f"%{t}%" for t in meaningful]
+                    row = cur.execute(query, params).fetchone()
+
+            if not row:
                 return None
 
             data = dict(row)
@@ -202,7 +258,7 @@ class SQLiteGraph(GraphInterface):
 
         if operation == "count":
             if threshold is None:
-                count_val = len(valid_events)
+                matching = valid_events
             else:
                 op_map = {
                     "gt": lambda v, t: v > t,
@@ -213,13 +269,14 @@ class SQLiteGraph(GraphInterface):
                 }
                 checker = op_map.get(threshold_op.lower(), op_map["gt"])
                 matching = [e for e in valid_events if checker(e[metric], threshold)]
-                count_val = len(matching)
 
+            count_val = len(matching)
+            # Include matching events in results so model has count + entities in one call
             return {
                 "operation": "count",
                 "metric": metric,
                 "count": count_val,
-                "results": [],
+                "results": matching[:limit] if limit else matching,
                 "tie_broken": False,
             }
 

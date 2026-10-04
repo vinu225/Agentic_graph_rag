@@ -208,6 +208,20 @@ class AgenticOrchestrator:
                     "content": json.dumps(tool_output)
                 })
 
+        if not final_answer:
+            # Token budget exceeded or max steps reached before model produced final_answer
+            try:
+                forced_msgs = messages + [{
+                    "role": "user",
+                    "content": "Synthesize the gathered evidence and provide your concise, direct final answer to the original question (using the canonical event title from the evidence if naming an event):"
+                }]
+                forced_resp = generate(messages=forced_msgs, tools=None, temperature=0.0)
+                final_answer = forced_resp.content or "No definitive answer could be determined from the gathered evidence."
+                total_prompt_tokens += forced_resp.prompt_tokens
+                total_completion_tokens += forced_resp.completion_tokens
+            except Exception:
+                final_answer = "No definitive answer could be determined from the gathered evidence."
+
         total_elapsed = time.time() - start_time
         total_tokens = total_prompt_tokens + total_completion_tokens
 
