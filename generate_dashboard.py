@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-WORKSPACE_ROOT = Path("c:/LATEST/RAG/Agentic_graph_rag")
-json_path = WORKSPACE_ROOT / "comparison_15q.json"
+WORKSPACE_ROOT = Path(__file__).resolve().parent
+json_path = WORKSPACE_ROOT / "comparison_100.json" if (WORKSPACE_ROOT / "comparison_100.json").exists() else (WORKSPACE_ROOT / "comparison_15q.json")
 html_path = WORKSPACE_ROOT / "metrics_dashboard.html"
 
 with open(json_path, "r", encoding="utf-8") as f:
