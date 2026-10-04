@@ -30,11 +30,18 @@ venv.bak/
 *.sqlite
 *.sqlite3
 
-# ─── Evaluation Outputs (regenerable, not source code) ────────────────────────
-results_rag.jsonl
-results_graphrag.jsonl
-results_agentic.jsonl
-results_*.jsonl
+# ─── Evaluation Outputs ────────────────────────────────────────────────────────
+# Ignore root-level ad-hoc / scratch evaluation runs
+/results_*.jsonl
+/results_rag_test.jsonl
+/results_agentic.jsonl
+/results_agentic_pre_fix.jsonl
+/results_graphrag.jsonl
+rag_only_pipeline/results_rag.jsonl
+
+# Explicitly keep official benchmark deliverables in results/
+!results/
+!results/*.jsonl
 
 # ─── IDE & Editor ─────────────────────────────────────────────────────────────
 .vscode/
@@ -69,6 +76,7 @@ secrets.json
 
 # ─── Temp / scratch files left over from development ──────────────────────────
 temp_*.py
+scratch_*.py
 create_rag_project.py
 verify_step*.py
 scratch/
