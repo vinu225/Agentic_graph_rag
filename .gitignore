@@ -87,3 +87,13 @@ drive-download-*/
 # ─── OS ───────────────────────────────────────────────────────────────────────
 Desktop.ini
 ehthumbs.db
+
+
+optimized_comparison_50_hidden.json
+optimized_comparison_100_final.json
+run_full_100q_benchmark.py
+run_hidden_50q_benchmark.py
+comparison_15q.json
+complete_benchmark_15q.py
+comparison_100.json
+comparison_100_final.json

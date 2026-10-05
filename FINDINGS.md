@@ -143,3 +143,30 @@ Following sample validation, the optimized pipeline was evaluated across all 100
 2. **Zero Accuracy Penalty**:
    - Compacting the representation did not cause a single regression across the benchmark (100% accuracy on the 15q stratified set was maintained).
    - In fact, eliminating context bloat improved model attention, allowing the agent to answer cleanly without hitting artificial token budgets or drifting into irrelevant historical narratives.
+
+---
+
+## 6. Research Investigation: Testing Dense Semantic Search & Hybrid RRF for RAG
+
+As part of the evaluation to determine if RAG could be improved prior to LLM generation, we implemented and evaluated dense vector retrieval (`sentence-transformers/all-MiniLM-L6-v2`, 384 dimensions, indexed via FAISS `IndexFlatIP`) alongside the baseline BM25 index over the entire corpus of 20,100 chunks. Rankings were fused using Reciprocal Rank Fusion (RRF with $k_{rrf}=60$).
+
+### Empirical Recall Evaluation Across All 100 Questions:
+
+| Metric | BM25-Only | Vector-Only | Hybrid (RRF) | Delta (Hybrid vs BM25) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Hit@5** | **98.0%** (98/100) | 79.0% (79/100) | 93.0% (93/100) | -5.0% |
+| **Hit@8** | **98.0%** (98/100) | 86.0% (86/100) | 97.0% (97/100) | **-1.0%** |
+| **Hit@10** | 98.0% (98/100) | 87.0% (87/100) | **99.0%** (99/100) | +1.0% |
+| **Frac@8 (All Gold Docs)** | **82.5%** | 64.1% | 82.2% | -0.3% |
+
+### Query Type Breakdown at Hit@8:
+* **`aggregation` (21 Qs)**: BM25: 100.0% | Vector: 100.0% | Hybrid: 100.0% (0.0% delta)
+* **`lookup` (19 Qs)**: BM25: 100.0% | Vector: 100.0% | Hybrid: 100.0% (0.0% delta)
+* **`superlative` (10 Qs)**: BM25: 100.0% | Vector: 100.0% | Hybrid: 100.0% (0.0% delta)
+* **`temporal` (22 Qs)**: BM25: 100.0% | Vector: 100.0% | Hybrid: 100.0% (0.0% delta)
+* **`multi_hop` (28 Qs)**: BM25: **92.9%** (26/28) | Vector: 50.0% (14/28) | Hybrid: **89.3%** (25/28) (**-3.6% delta**)
+
+### Conclusion & Production Decision:
+- **Root Cause of Hybrid Regression**: Dense semantic embeddings diffuse attention over broad conceptual themes (e.g. general Olympic event narratives) and fail to capture specific entity combinations (specific dates and specific arenas). This dilutes the high-precision keyword signals of BM25 on multi-hop questions, occasionally pushing the exact matching chunk outside the top-8 window.
+- **Decision**: Consistent with sound empirical methodology, Hybrid search was **rejected for production RAG** in favor of the cleaner, higher-precision BM25-only index. The FAISS vector index and `HybridRetriever` code are preserved in `rag_only_pipeline/retrieval/` as verified research deliverables.
+

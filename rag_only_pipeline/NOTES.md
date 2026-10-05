@@ -50,3 +50,36 @@ This document logs empirical findings, structural failure modes, and retrieval c
 * **Implementation Details**: The `MockLLM` in `rag_only_pipeline/llm/llm_client.py` uses heuristic pattern matching over the *retrieved prompt context* (scanning for Infobox fields like `gold:` and `competitors:` within the retrieved chunks and extracting chunk IDs).
 * **Purpose**: It validates end-to-end retrieval grounding, chunk extraction, prompt construction, token tracking, citation parsing, and JSONL output schema compliance without external LLM dependencies.
 * **Limitation**: MockLLM does NOT perform genuine reasoning or semantic comprehension. Full question answering capabilities will be evaluated once the real model (`qwen3:8b`) is connected.
+
+---
+
+## 5. Finding 5: Semantic Vector Search & Hybrid RRF Empirical Evaluation
+
+To test whether dense semantic search could enhance sparse BM25 retrieval, we constructed a dense vector index over all **20,100 narrative chunks** using `sentence-transformers` (`all-MiniLM-L6-v2`, 384 dimensions) and FAISS (`IndexFlatIP` with L2-normalized cosine similarity). We then evaluated **BM25-only**, **Vector-only**, and **Hybrid RRF** (Reciprocal Rank Fusion with $k_{rrf}=60$) across all 100 questions from `eval_public.jsonl`.
+
+### Empirical Results across 100 Evaluation Questions:
+
+| Metric | BM25-Only | Vector-Only | Hybrid (RRF) | Hybrid vs BM25 Delta |
+| :--- | :---: | :---: | :---: | :---: |
+| **Hit@5** | **98.0%** (98/100) | 79.0% (79/100) | 93.0% (93/100) | -5.0% |
+| **Hit@8** | **98.0%** (98/100) | 86.0% (86/100) | 97.0% (97/100) | **-1.0%** |
+| **Hit@10** | 98.0% (98/100) | 87.0% (87/100) | **99.0%** (99/100) | +1.0% |
+| **Frac@5 (All Gold Docs)** | **73.3%** | 50.5% | 69.1% | -4.2% |
+| **Frac@8 (All Gold Docs)** | **82.5%** | 64.1% | 82.2% | -0.3% |
+| **Frac@10 (All Gold Docs)** | 87.8% | 67.5% | **88.8%** | +1.0% |
+
+### Recall@8 Breakdown by Query Type:
+
+| Query Type | Questions | BM25 Hit@8 | Vector Hit@8 | Hybrid Hit@8 | Delta |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **`aggregation`** | 21 | **100.0%** (21/21) | 100.0% (21/21) | 100.0% (21/21) | 0.0% |
+| **`lookup`** | 19 | **100.0%** (19/19) | 100.0% (19/19) | 100.0% (19/19) | 0.0% |
+| **`multi_hop`** | 28 | **92.9%** (26/28) | 50.0% (14/28) | 89.3% (25/28) | **-3.6%** |
+| **`superlative`** | 10 | **100.0%** (10/10) | 100.0% (10/10) | 100.0% (10/10) | 0.0% |
+| **`temporal`** | 22 | **100.0%** (22/22) | 100.0% (22/22) | 100.0% (22/22) | 0.0% |
+
+### Key Analysis & Architectural Takeaway:
+1. **Semantic Vector Search Alone Suffers on Named Entity & Date Constraints (50.0% on `multi_hop`)**: Dense embeddings capture broad topical similarity (e.g., cycling or sailing at the Olympics), but fail to distinguish between specific dates (e.g., "3 to 4 August" vs "7 August") or specific sub-arenas.
+2. **Hybrid RRF Slightly Regressed Hit@8 (-1.0%)**: Fusing vector rankings diluted the precise lexical signal of BM25 on multi-hop questions (`pub-015`, `pub-038`), pushing exact match chunks from top-8 down to rank 9–10.
+3. **Decision: Retain BM25-Only as Production Retriever**: Because Hybrid RRF does not improve Hit@8 recall and introduces unnecessary embedding overhead, BM25-only is retained as the authoritative, optimal retriever for the RAG baseline. The vector index and hybrid retriever are preserved in `rag_only_pipeline/retrieval/` as verified research artifacts.
+
