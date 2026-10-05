@@ -1,0 +1,5 @@
+# Core & Optional Dependencies for Agentic GraphRAG
+# Note: Core pipelines (RAG, GraphRAG, Agent) rely primarily on Python standard libraries (sqlite3, urllib, json).
+pytest>=8.0.0
+python-dotenv>=1.0.0
+pyTigerGraph>=1.5.0

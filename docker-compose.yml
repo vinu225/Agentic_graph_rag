@@ -1,0 +1,62 @@
+services:
+  # Service 1: Ollama LLM provider (serving qwen3:8b)
+  # Uses official Ollama image; persistent volume stores downloaded models
+  ollama:
+    image: ollama/ollama:latest
+    container_name: graphrag-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+    # If host has NVIDIA GPU support, GPU reservation can be enabled:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # Service 2: Agentic GraphRAG Application
+  # Evaluates Plain RAG, GraphRAG, and Agentic GraphRAG pipelines
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentic-graphrag-app
+    depends_on:
+      - ollama
+    environment:
+      # Network address of Ollama service within Docker network
+      - OLLAMA_API_BASE=http://ollama:11434/v1
+      - OLLAMA_MODEL=qwen3:8b
+      # Database paths inside container
+      - SQLITE_DB_PATH=/app/data/local_graph.db
+      - RAG_SQLITE_PATH=/app/data/rag_storage.db
+      # Dataset and question paths inside container
+      - CORPUS_PATH=/app/dataset/corpus/corpus.jsonl
+      - EVAL_PUBLIC_PATH=/app/dataset/questions/eval_public.jsonl
+      - EVAL_HIDDEN_PATH=/app/dataset/questions/eval_hidden.jsonl
+    volumes:
+      # Mount corpus and questions as read-only (prevents baking 100MB+ into image)
+      - ./drive-download-20260928T175718Z-1-001:/app/dataset:ro
+      # Mount SQLite knowledge databases
+      - ./local_graph.db:/app/data/local_graph.db:ro
+      - ./rag_only_pipeline/rag_storage.db:/app/data/rag_storage.db:ro
+      # Mount results directory read-write so evaluation outputs persist on host
+      - ./results:/app/results:rw
+      # Mount optional environment configuration (TigerGraph credentials if used)
+      - ./.env:/app/.env:ro
+    # Allow container to reach host-managed Ollama if user prefers running Ollama outside container
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    stdin_open: true
+    tty: true
+    command: ["/bin/bash"]
+
+# Note: TigerGraph Savanna, if used, is a cloud-hosted graph service accessed
+# over HTTPS via credentials in .env (no separate TigerGraph container needed).
+volumes:
+  ollama_models:
+    name: graphrag_ollama_models

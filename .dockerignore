@@ -1,0 +1,39 @@
+# Version control & IDE
+.git
+.gitignore
+.idea
+.vscode
+
+# Python bytecode & virtual environments
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache
+.venv
+venv
+env
+
+# Databases & large corpus datasets (mounted as volumes at runtime)
+local_graph.db
+test_graph.db
+*.db
+*.sqlite
+*.sqlite3
+rag_only_pipeline/rag_storage.db
+drive-download-*
+
+# Environment & credentials (never bake into image)
+.env
+.env.*
+
+# Generated results & evaluation outputs (mounted as volume)
+results/*.jsonl
+results/*.json
+
+# Scratch scripts, temporary brain artifacts, and legacy archive
+archive/
+brain/
+metrics_dashboard.html
+dev_scripts/
+graphrag/

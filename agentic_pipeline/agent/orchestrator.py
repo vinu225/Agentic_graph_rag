@@ -202,10 +202,24 @@ class AgenticOrchestrator:
                     ]
                 })
 
+                # Format compact content for LLM conversation history if large event list
+                if tool_call.name == "get_events" and isinstance(tool_output, list) and len(tool_output) > 5:
+                    compact_payload = {
+                        "matched_count": len(tool_output),
+                        "sample_events": [
+                            {"title": ev.get("title"), "competitors": ev.get("competitors"), "gold": ev.get("gold")}
+                            for ev in tool_output[:3]
+                        ],
+                        "note": f"{len(tool_output)} matching events stored in working memory. Use count_or_rank or get_event_attributes to compute or inspect them."
+                    }
+                    content_str = json.dumps(compact_payload)
+                else:
+                    content_str = json.dumps(tool_output)
+
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
-                    "content": json.dumps(tool_output)
+                    "content": content_str
                 })
 
         if not final_answer:
@@ -213,7 +227,7 @@ class AgenticOrchestrator:
             try:
                 forced_msgs = messages + [{
                     "role": "user",
-                    "content": "Synthesize the gathered evidence and provide your concise, direct final answer to the original question (using the canonical event title from the evidence if naming an event):"
+                    "content": "Synthesize the gathered evidence and provide your concise, direct final answer to the original question in 1-2 sentences (using the canonical event title from the evidence if naming an event):"
                 }]
                 forced_resp = generate(messages=forced_msgs, tools=None, temperature=0.0)
                 final_answer = forced_resp.content or "No definitive answer could be determined from the gathered evidence."

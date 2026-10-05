@@ -9,14 +9,14 @@
     "average_tokens": {
       "RAG": 2160.6,
       "GraphRAG": 2172.1,
-      "Agent": 5906.9
+      "Agent": 4780.2
     },
     "average_latency_s": {
       "RAG": 10.97,
       "GraphRAG": 15.33,
-      "Agent": 21.28
+      "Agent": 17.87
     },
-    "agent_average_steps": 2.8,
+    "agent_average_steps": 3.0,
     "by_type": {
       "aggregation": {
         "total": 3,
@@ -28,12 +28,12 @@
         "tokens": {
           "RAG": 2017.0,
           "GraphRAG": 2124.7,
-          "Agent": 9446.3
+          "Agent": 6964.0
         },
         "latency_s": {
           "RAG": 23.26,
           "GraphRAG": 14.72,
-          "Agent": 38.37
+          "Agent": 24.98
         }
       },
       "temporal": {
@@ -46,12 +46,12 @@
         "tokens": {
           "RAG": 2436.7,
           "GraphRAG": 1756.0,
-          "Agent": 5328.0
+          "Agent": 4839.7
         },
         "latency_s": {
           "RAG": 9.25,
           "GraphRAG": 7.29,
-          "Agent": 19.52
+          "Agent": 17.9
         }
       },
       "superlative": {
@@ -64,12 +64,12 @@
         "tokens": {
           "RAG": 2140.0,
           "GraphRAG": 2679.7,
-          "Agent": 8477.0
+          "Agent": 6034.3
         },
         "latency_s": {
           "RAG": 7.2,
           "GraphRAG": 22.35,
-          "Agent": 22.51
+          "Agent": 20.1
         }
       },
       "multi_hop": {
@@ -82,12 +82,12 @@
         "tokens": {
           "RAG": 2082.3,
           "GraphRAG": 1206.3,
-          "Agent": 3401.3
+          "Agent": 2706.7
         },
         "latency_s": {
           "RAG": 8.99,
           "GraphRAG": 22.4,
-          "Agent": 15.23
+          "Agent": 13.09
         }
       },
       "lookup": {
@@ -100,12 +100,12 @@
         "tokens": {
           "RAG": 2127.0,
           "GraphRAG": 3094.0,
-          "Agent": 2881.7
+          "Agent": 3356.3
         },
         "latency_s": {
           "RAG": 6.12,
           "GraphRAG": 9.89,
-          "Agent": 10.77
+          "Agent": 13.28
         }
       }
     }
@@ -131,12 +131,12 @@
         "latency": 10.158
       },
       "agent": {
-        "answer": "According to the provided corpus, there were **5 biathlon events** at the 2018 Winter Olympics that had more than 73 competitors.",
+        "answer": "According to the provided corpus, there were 5 biathlon events at the 2018 Winter Olympics that had more than 73 competitors. These events included the Mixed relay, Women's sprint, Men's sprint, Women's individual, and Men's individual.",
         "correct": true,
-        "tokens": 10170,
-        "latency": 24.817,
-        "total_steps": 3,
-        "stopped_reason": "evidence_sufficient_answered"
+        "tokens": 8652,
+        "latency": 33.537,
+        "total_steps": 4,
+        "stopped_reason": "token_budget_exceeded"
       }
     },
     {
@@ -159,11 +159,11 @@
         "latency": 26.958
       },
       "agent": {
-        "answer": "The count_or_rank function returned 8 events where the number of competitors was greater than 37. These events are all part of the Shooting discipline at the 2004 Summer Olympics. The events include:\n\n1. **Shooting at the 2004 Summer Olympics – Men's 50 metre pistol** (42 competitors)\n2. **Shooting at the 2004 Summer Olympics – Men's 50 metre rifle prone** (46 competitors)\n3. **Shooting at the 2004 Summer Olympics – Men's skeet** (41 competitors)\n4. **Shooting at the 2004 Summer Olympics – Men's 50 metre rifle three positions** (40 competitors)\n5. **Shooting at the 2004 Summer Olympics – Men's 10 metre air rifle** (47 competitors)\n6. **Shooting at the 2004 Summer Olympics – Women's 10 metre air rifle** (44 competitors)\n7. **Shooting at the 2004 Summer Olympics – Men's 10 metre air pistol** (47 competitors)\n8. **Shooting at the 2004 Summer Olympics – Women's 10 metre air pistol** (41 competitors)\n\nThese events are all held at the Markópoulo Olympic Shooting Centre in Athens, Greece, during the 2004 Summer Olympics.",
+        "answer": "According to the provided corpus, there were 8 shooting events at the 2004 Summer Olympics that had more than 37 competitors.",
         "correct": true,
-        "tokens": 9203,
-        "latency": 60.791,
-        "total_steps": 3,
+        "tokens": 7023,
+        "latency": 22.953,
+        "total_steps": 4,
         "stopped_reason": "evidence_sufficient_answered"
       }
     },
@@ -187,10 +187,10 @@
         "latency": 7.03
       },
       "agent": {
-        "answer": "According to the provided corpus, there were **4 cycling events** at the 2000 Summer Olympics that had more than 30 competitors.",
+        "answer": "According to the provided corpus, there were 4 cycling events at the 2000 Summer Olympics that had more than 30 competitors.",
         "correct": true,
-        "tokens": 8966,
-        "latency": 29.512,
+        "tokens": 5217,
+        "latency": 18.458,
         "total_steps": 3,
         "stopped_reason": "evidence_sufficient_answered"
       }
@@ -215,10 +215,10 @@
         "latency": 7.755
       },
       "agent": {
-        "answer": "The gold medal in the men's 20 kilometres walk athletics event at the 2012 Summer Olympics was won by **Chen Ding** from China (CHN).",
+        "answer": "The gold medal in the men's 20 kilometres walk athletics event at the 2012 Summer Olympics was won by Chen Ding.",
         "correct": true,
-        "tokens": 4337,
-        "latency": 16.83,
+        "tokens": 4134,
+        "latency": 16.349,
         "total_steps": 3,
         "stopped_reason": "evidence_sufficient_answered"
       }
@@ -243,10 +243,10 @@
         "latency": 6.761
       },
       "agent": {
-        "answer": "The gold medal in the women's 57 kg judo event at the 2016 Summer Olympics was won by **Rafaela Silva** from Brazil.",
+        "answer": "The gold medal in the women's 57 kg judo event at the 2016 Summer Olympics was won by Rafaela Silva.",
         "correct": true,
-        "tokens": 4353,
-        "latency": 16.889,
+        "tokens": 4124,
+        "latency": 15.605,
         "total_steps": 3,
         "stopped_reason": "evidence_sufficient_answered"
       }
@@ -271,10 +271,10 @@
         "latency": 7.36
       },
       "agent": {
-        "answer": "The gold medal in the men's pole vault athletics event at the Summer Olympics held immediately before 2016 (the 2012 Summer Olympics) was won by **Renaud Lavillenie** from France.",
+        "answer": "The gold medal in the men's pole vault athletics event at the 2012 Summer Olympics was won by Renaud Lavillenie from France.",
         "correct": true,
-        "tokens": 7294,
-        "latency": 24.841,
+        "tokens": 6261,
+        "latency": 21.749,
         "total_steps": 4,
         "stopped_reason": "evidence_sufficient_answered"
       }
@@ -299,10 +299,10 @@
         "latency": 13.175
       },
       "agent": {
-        "answer": "The athletics event at the 2008 Summer Olympics that had the highest number of competitors was the **Men's marathon**, with **95 competitors**.",
+        "answer": "The athletics event at the 2008 Summer Olympics with the highest number of competitors was the Men's marathon, which had 95 competitors.",
         "correct": true,
-        "tokens": 7901,
-        "latency": 19.856,
+        "tokens": 5021,
+        "latency": 16.401,
         "total_steps": 3,
         "stopped_reason": "evidence_sufficient_answered"
       }
@@ -327,11 +327,11 @@
         "latency": 40.173
       },
       "agent": {
-        "answer": "The sailing event at the 2000 Summer Olympics that had the highest number of competitors was the **Sailing at the 2000 Summer Olympics – Soling**, with **48 competitors**.",
+        "answer": "The sailing event at the 2000 Summer Olympics with the highest number of competitors was the \"Sailing at the 2000 Summer Olympics – Soling\" event, which had 48 competitors.",
         "correct": true,
-        "tokens": 7995,
-        "latency": 21.597,
-        "total_steps": 3,
+        "tokens": 6548,
+        "latency": 22.501,
+        "total_steps": 4,
         "stopped_reason": "evidence_sufficient_answered"
       }
     },
@@ -355,10 +355,10 @@
         "latency": 13.705
       },
       "agent": {
-        "answer": "The alpine skiing event at the 1988 Winter Olympics with the highest number of competitors was the **Men's Giant Slalom**, which had **117 competitors**.",
+        "answer": "The alpine skiing event at the 1988 Winter Olympics with the highest number of competitors was the Men's Giant Slalom, which had 117 competitors.",
         "correct": true,
-        "tokens": 9535,
-        "latency": 26.079,
+        "tokens": 6534,
+        "latency": 21.4,
         "total_steps": 4,
         "stopped_reason": "evidence_sufficient_answered"
       }
@@ -383,10 +383,10 @@
         "latency": 6.232
       },
       "agent": {
-        "answer": "The gold medal in the event held at the Olympic Weightlifting Gymnasium on 20 September 1988 was won by **Naim Süleymanoğlu** from Turkey (TUR).",
+        "answer": "The gold medal in the event held at the Olympic Weightlifting Gymnasium on 20 September 1988 was won by Naim Süleymanoğlu in the Men's 60 kg category.",
         "correct": true,
-        "tokens": 2924,
-        "latency": 13.27,
+        "tokens": 2698,
+        "latency": 12.012,
         "total_steps": 2,
         "stopped_reason": "evidence_sufficient_answered"
       }
@@ -411,11 +411,11 @@
         "latency": 7.424
       },
       "agent": {
-        "answer": "The gold medal in the event held at the Richmond Olympic Oval on 14 February 2010 was won by **Martina Sáblíková** from the Czech Republic (CZE).",
+        "answer": "The gold medal in the event held at Richmond Olympic Oval on 14 February 2010 was won by Martina Sáblíková in the Women's 3000 metres of Speed skating at the 2010 Winter Olympics.",
         "correct": true,
-        "tokens": 4310,
-        "latency": 18.156,
-        "total_steps": 3,
+        "tokens": 2700,
+        "latency": 14.02,
+        "total_steps": 2,
         "stopped_reason": "evidence_sufficient_answered"
       }
     },
@@ -439,10 +439,10 @@
         "latency": 53.534
       },
       "agent": {
-        "answer": "The gold medal in the event held at Riocentro – Pavilion 4 on 11–19 August at the 2016 Summer Olympics was won by **Carolina Marín** from Spain (NOC: ESP) in the Women's singles badminton event.",
+        "answer": "The gold medal in the Women's singles badminton event at the 2016 Summer Olympics, held at Riocentro – Pavilion 4 from 11–19 August, was won by Carolina Marín.",
         "correct": true,
-        "tokens": 2970,
-        "latency": 14.259,
+        "tokens": 2722,
+        "latency": 13.233,
         "total_steps": 2,
         "stopped_reason": "evidence_sufficient_answered"
       }
@@ -469,8 +469,8 @@
       "agent": {
         "answer": "The number of nations that competed in Sailing at the 2016 Summer Olympics – Women's RS:X is 26.",
         "correct": true,
-        "tokens": 2869,
-        "latency": 10.453,
+        "tokens": 2901,
+        "latency": 10.909,
         "total_steps": 2,
         "stopped_reason": "evidence_sufficient_answered"
       }
@@ -497,9 +497,9 @@
       "agent": {
         "answer": "The number of nations that competed in Judo at the 2016 Summer Olympics – Women's 57 kg is 23.",
         "correct": true,
-        "tokens": 2878,
-        "latency": 10.749,
-        "total_steps": 2,
+        "tokens": 4238,
+        "latency": 17.742,
+        "total_steps": 3,
         "stopped_reason": "evidence_sufficient_answered"
       }
     },
@@ -525,8 +525,8 @@
       "agent": {
         "answer": "The number of nations that competed in Shooting at the 2012 Summer Olympics – Men's 50 metre rifle three positions is 28.",
         "correct": true,
-        "tokens": 2898,
-        "latency": 11.102,
+        "tokens": 2930,
+        "latency": 11.198,
         "total_steps": 2,
         "stopped_reason": "evidence_sufficient_answered"
       }

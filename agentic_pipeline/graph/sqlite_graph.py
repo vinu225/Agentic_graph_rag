@@ -130,6 +130,63 @@ class SQLiteGraph(GraphInterface):
 
             conn.commit()
 
+    @staticmethod
+    def _normalize_date_variants(date_str: str) -> List[str]:
+        """Generate alternative date format strings for fuzzy matching.
+        E.g. 'August 12, 2008' -> ['August 12, 2008', '12 August 2008', 'August 12']
+        """
+        if not date_str:
+            return []
+        variants = [date_str.strip()]
+
+        # Match "Month DD, YYYY" -> also try "DD Month YYYY" and "Month DD"
+        m = re.match(
+            r"(January|February|March|April|May|June|July|August|September|October|November|December)"
+            r"\s+(\d{1,2}),?\s*(\d{4})?",
+            date_str.strip(), re.IGNORECASE
+        )
+        if m:
+            month, day, year = m.group(1), m.group(2), m.group(3)
+            variants.append(f"{day} {month} {year}" if year else f"{day} {month}")
+            variants.append(f"{month} {day}")
+            if year:
+                variants.append(f"{day} {month}")
+            return list(dict.fromkeys(variants))  # dedupe preserving order
+
+        # Match "DD Month YYYY" -> also try "Month DD, YYYY"
+        m2 = re.match(
+            r"(\d{1,2})\s+"
+            r"(January|February|March|April|May|June|July|August|September|October|November|December)"
+            r",?\s*(\d{4})?",
+            date_str.strip(), re.IGNORECASE
+        )
+        if m2:
+            day, month, year = m2.group(1), m2.group(2), m2.group(3)
+            variants.append(f"{month} {day}, {year}" if year else f"{month} {day}")
+            variants.append(f"{month} {day}")
+            if year:
+                variants.append(f"{day} {month}")
+            return list(dict.fromkeys(variants))
+
+        # If date has range like "13, 14 February 2022", also try "13" and "14 February"
+        m3 = re.match(r"(\d{1,2}),?\s*(\d{1,2})\s+(\w+)\s*(\d{4})?", date_str.strip())
+        if m3:
+            d1, d2, month, year = m3.group(1), m3.group(2), m3.group(3), m3.group(4)
+            variants.append(f"{d1}, {d2} {month} {year}" if year else f"{d1}, {d2} {month}")
+            variants.append(f"{d1} {month}")
+            variants.append(f"{d2} {month}")
+
+        return list(dict.fromkeys(variants))
+
+    @staticmethod
+    def _venue_search_tokens(venue: str) -> List[str]:
+        """Extract meaningful venue keyword tokens for fuzzy matching.
+        'Beijing Science and Technology University Gymnasium' -> ['Beijing', 'Science', 'Technology', 'University', 'Gymnasium']
+        """
+        stop = {"at", "the", "in", "of", "and", "or", "on", "for", "to", "a", "an"}
+        tokens = re.split(r"[\s,]+", venue)
+        return [t for t in tokens if t.lower() not in stop and len(t) >= 3]
+
     def get_events(
         self,
         games: Optional[str] = None,
@@ -140,8 +197,11 @@ class SQLiteGraph(GraphInterface):
         competitor_min: Optional[int] = None,
         competitor_max: Optional[int] = None,
         limit: int = 200,
+        full_details: bool = False,
     ) -> List[Dict[str, Any]]:
-        """Filter and retrieve event entities with structured constraints."""
+        """Filter and retrieve event entities with structured constraints.
+        Includes fuzzy venue matching and date normalization for robust multi-hop lookups.
+        """
         # Auto-extract recognized sport names out of event_name if present
         if event_name:
             if not sport:
@@ -155,7 +215,57 @@ class SQLiteGraph(GraphInterface):
             
             event_name = re.sub(r"^[–—\-\s,]+|[–—\-\s,]+$", "", event_name).strip() or None
 
-        query = "SELECT * FROM events WHERE 1=1"
+        select_cols = "*" if full_details else "doc_id, title, event_name, sport, games, year, competitors, nations, gold"
+
+        results = self._query_events(
+            select_cols, games, sport, event_name, venue, date,
+            competitor_min, competitor_max, limit
+        )
+
+        # If zero results and venue was provided, try fuzzy venue matching
+        if not results and venue:
+            # Retry 1: tokenized venue keywords (handles missing spaces, partial names)
+            venue_tokens = self._venue_search_tokens(venue)
+            if len(venue_tokens) >= 2:
+                results = self._query_events_fuzzy_venue(
+                    select_cols, games, sport, event_name, venue_tokens, date,
+                    competitor_min, competitor_max, limit
+                )
+
+        # If still zero results and date was provided, try normalized date variants
+        if not results and date and venue:
+            date_variants = self._normalize_date_variants(date)
+            venue_tokens = self._venue_search_tokens(venue)
+            for dv in date_variants[1:]:  # skip first (already tried)
+                results = self._query_events_fuzzy_venue(
+                    select_cols, games, sport, event_name,
+                    venue_tokens if len(venue_tokens) >= 2 else None,
+                    dv, competitor_min, competitor_max, limit,
+                    venue_exact=venue
+                )
+                if results:
+                    break
+
+        # Last resort for venue+date: search with venue tokens only (drop date entirely)
+        if not results and venue and date:
+            venue_tokens = self._venue_search_tokens(venue)
+            if venue_tokens:
+                results = self._query_events_fuzzy_venue(
+                    select_cols, games, sport, event_name, venue_tokens, None,
+                    competitor_min, competitor_max, limit
+                )
+
+        return results
+
+    def _query_events(
+        self, select_cols: str,
+        games: Optional[str], sport: Optional[str], event_name: Optional[str],
+        venue: Optional[str], date: Optional[str],
+        competitor_min: Optional[int], competitor_max: Optional[int],
+        limit: int,
+    ) -> List[Dict[str, Any]]:
+        """Core query builder for exact LIKE matching."""
+        query = f"SELECT {select_cols} FROM events WHERE 1=1"
         params: List[Any] = []
 
         if games:
@@ -170,6 +280,54 @@ class SQLiteGraph(GraphInterface):
         if venue:
             query += " AND venue LIKE ?"
             params.append(f"%{venue}%")
+        if date:
+            query += " AND date LIKE ?"
+            params.append(f"%{date}%")
+        if competitor_min is not None:
+            query += " AND competitors >= ?"
+            params.append(competitor_min)
+        if competitor_max is not None:
+            query += " AND competitors <= ?"
+            params.append(competitor_max)
+
+        query += " LIMIT ?"
+        params.append(limit)
+
+        with self._get_connection() as conn:
+            cur = conn.cursor()
+            rows = cur.execute(query, params).fetchall()
+            return [dict(r) for r in rows]
+
+    def _query_events_fuzzy_venue(
+        self, select_cols: str,
+        games: Optional[str], sport: Optional[str], event_name: Optional[str],
+        venue_tokens: Optional[List[str]], date: Optional[str],
+        competitor_min: Optional[int], competitor_max: Optional[int],
+        limit: int, venue_exact: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Query with tokenized venue matching: each venue keyword must appear in the venue field."""
+        query = f"SELECT {select_cols} FROM events WHERE 1=1"
+        params: List[Any] = []
+
+        if games:
+            query += " AND (games LIKE ? OR title LIKE ?)"
+            params.extend([f"%{games}%", f"%{games}%"])
+        if sport:
+            query += " AND (sport LIKE ? OR title LIKE ?)"
+            params.extend([f"%{sport}%", f"%{sport}%"])
+        if event_name:
+            query += " AND (event_name LIKE ? OR title LIKE ?)"
+            params.extend([f"%{event_name}%", f"%{event_name}%"])
+
+        # Fuzzy venue: require all keyword tokens to appear
+        if venue_tokens:
+            for token in venue_tokens:
+                query += " AND venue LIKE ?"
+                params.append(f"%{token}%")
+        elif venue_exact:
+            query += " AND venue LIKE ?"
+            params.append(f"%{venue_exact}%")
+
         if date:
             query += " AND date LIKE ?"
             params.append(f"%{date}%")
@@ -270,17 +428,38 @@ class SQLiteGraph(GraphInterface):
                 checker = op_map.get(threshold_op.lower(), op_map["gt"])
                 matching = [e for e in valid_events if checker(e[metric], threshold)]
 
+            def _compact_event(ev: Dict[str, Any]) -> Dict[str, Any]:
+                res = {"title": ev.get("title")}
+                if ev.get("event_name"):
+                    res["event_name"] = ev.get("event_name")
+                if metric in ev:
+                    res[metric] = ev.get(metric)
+                if ev.get("gold"):
+                    res["gold"] = ev.get("gold")
+                return res
+
             count_val = len(matching)
-            # Include matching events in results so model has count + entities in one call
+            # Include compact matching events in results so model has count + entities in one call without bloat
+            compact_matching = [_compact_event(e) for e in matching]
             return {
                 "operation": "count",
                 "metric": metric,
                 "count": count_val,
-                "results": matching[:limit] if limit else matching,
+                "results": compact_matching[:limit] if limit else compact_matching,
                 "tie_broken": False,
             }
 
         elif operation in ("max", "min", "top_k"):
+            def _compact_event(ev: Dict[str, Any]) -> Dict[str, Any]:
+                res = {"title": ev.get("title")}
+                if ev.get("event_name"):
+                    res["event_name"] = ev.get("event_name")
+                if metric in ev:
+                    res[metric] = ev.get(metric)
+                if ev.get("gold"):
+                    res["gold"] = ev.get("gold")
+                return res
+
             reverse_sort = (order.lower() == "desc") if operation == "top_k" else (operation == "max")
 
             # Deterministic primary sort by metric, secondary sort by title
@@ -316,7 +495,7 @@ class SQLiteGraph(GraphInterface):
                 "operation": operation,
                 "metric": metric,
                 "count": len(top_results),
-                "results": top_results,
+                "results": [_compact_event(e) for e in top_results],
                 "tie_broken": tie_broken,
             }
 

@@ -180,17 +180,37 @@ Agentic_graph_rag/
 ├── results/                        # Full 100-Question Raw Result Outputs
 │   ├── results_rag_100.jsonl      # 100 Plain RAG outputs (answers, tokens, latency)
 │   ├── results_graphrag_100.jsonl # 100 GraphRAG outputs
-│   └── results_agent_100.jsonl    # 100 Agent outputs + full execution traces
+│   ├── results_agent_100.jsonl    # 100 Agent outputs + full execution traces
+│   └── results_agent_100_optimized.jsonl  # Post-optimization agent outputs
 │
-├── comparison_100.md               # Complete markdown comparison report
-├── comparison_100.json             # Structured 100-question scoring matrix
+├── dev_scripts/                    # Development & diagnostic utilities
+│   ├── diagnose_agent_failures.py # Failure mode analysis scripts
+│   ├── rerun_agent_15q.py         # 15-question stratified re-runner
+│   ├── verify_step*.py            # Step-by-step pipeline verification
+│   └── trace_*.py / inspect_*.py  # Trace inspection & debugging
+│
+├── archive/                        # Superseded early-run result files
+│   └── results_*.jsonl            # Pre-refactor results (for reference only)
+│
+├── docs/                           # Supplementary documentation
+│   ├── hackathon_guide.md         # Official TigerGraph Hackathon Guidebook
+│   └── hackathon_brief.md         # Hackathon problem statement & brief
+│
+├── tests/                          # Unit & integration tests
+│
+├── comparison_100.md               # Pre-optimization benchmark report (baseline)
+├── comparison_100.json             # Pre-optimization scoring matrix
+├── comparison_100_final.md         # Final submission benchmark report (optimized)
+├── comparison_100_final.json       # Final submission scoring matrix
+├── FINDINGS.md                     # Engineering findings & optimization case study
 ├── metrics_dashboard.html          # Deliverable #5: Interactive metrics dashboard
 ├── generate_dashboard.py           # Dashboard HTML generator script
 ├── run_full_100q_benchmark.py      # Unified 100-question sequential runner
-├── local_graph.db                  # Ingested SQLite Olympic Knowledge Graph
+├── run_optimized_agent_100q.py     # Optimized agent benchmark runner
 └── README.md                       # Comprehensive project documentation
 ```
 
+> **Note**: `local_graph.db` and `rag_only_pipeline/rag_storage.db` are gitignored (large binary files, regenerable from corpus).
 ---
 
 ## 🚀 Quickstart & How to Run
@@ -244,6 +264,45 @@ open metrics_dashboard.html
 # On Linux:
 xdg-open metrics_dashboard.html
 ```
+
+### 6. Running with Docker (Reproducible Container Environment)
+
+For reproducible execution without local Python dependency setup, use Docker Compose:
+
+#### Step 1: Start the Containers (Ollama + App)
+```bash
+docker compose up -d
+```
+
+#### Step 2: Pull the Model into Ollama (First Time Only)
+```bash
+docker compose exec ollama ollama pull qwen3:8b
+```
+*(Tip: If Ollama is already running on your host machine, you can point `OLLAMA_API_BASE=http://host.docker.internal:11434/v1` to reuse your host GPU and models directly).*
+
+#### Step 3: Run Pipelines Inside the Container
+```bash
+# Run Plain RAG on a sample question:
+docker compose exec app python rag_only_pipeline/run_rag.py --qid pub-001
+
+# Run Agentic GraphRAG on a query:
+docker compose exec app python run_agent.py --query "Who won gold in men's 200m backstroke in 2012?"
+
+# Run the 100-question comparative benchmark:
+docker compose exec app python run_full_100q_benchmark.py
+
+# Run the 50 hidden evaluation questions benchmark:
+docker compose exec app python run_hidden_50q_benchmark.py
+```
+
+#### Step 4: Stop Containers
+```bash
+docker compose down
+```
+
+> [!NOTE]
+> - Large dataset directories (`drive-download-...`), SQLite databases (`local_graph.db`, `rag_storage.db`), and evaluation outputs (`results/`) are mounted as host volumes and never baked into the container image.
+> - TigerGraph Savanna, if used, is a cloud-hosted service accessed securely over HTTPS via credentials in a mounted `.env` file.
 
 ---
 
