@@ -1,0 +1,3 @@
+TG_HOST=https://your-instance.i.tgcloud.io
+TG_SECRET=your_secret_from_savanna_portal
+TG_GRAPH_NAME=name 

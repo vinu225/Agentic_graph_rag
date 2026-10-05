@@ -236,7 +236,25 @@ source venv/bin/activate
 pip install -r requirements.txt  # or: pip install requests rank-bm25 pydantic
 ```
 
-### 3. Run Individual Pipelines
+### 3. (Optional) Connecting to TigerGraph Savanna Cloud Database
+
+The project implements a pluggable `GraphInterface` ([`agentic_pipeline/graph/base.py`](./agentic_pipeline/graph/base.py)) allowing both the **GraphRAG pipeline** and **Autonomous Agentic GraphRAG** to query either local SQLite or **TigerGraph Savanna** cloud graph database seamlessly without altering the agent's prompts or reasoning loop:
+
+1. **Configure credentials**: Copy `.envexample` to `.env` and fill in your Savanna instance details:
+   ```ini
+   TG_HOST=https://your-instance.i.tgcloud.io
+   TG_SECRET=your_secret_from_savanna_portal
+   TG_GRAPH_NAME=TigerGraphRAG
+   ```
+
+2. **Verify connection**: Run the connection test script to validate token-based OAuth authentication with your Savanna instance:
+   ```bash
+   python dev_scripts/test_tg_connection.py
+   ```
+
+3. **Backend implementation**: The adapter in [`agentic_pipeline/graph/tigergraph_stub.py`](./agentic_pipeline/graph/tigergraph_stub.py) (`TigerGraphSavanna`) implements the `GraphInterface` methods (`get_events`, `get_event_attributes`, `count_or_rank`, `get_chunks`) using `pyTigerGraph` GSQL endpoints. Both pipelines can switch between local SQLite (`SQLiteGraph`) and Savanna cloud (`TigerGraphSavanna`) by instantiating the respective backend into `ToolSuite(graph=...)`.
+
+### 4. Run Individual Pipelines
 ```bash
 # Run Plain RAG
 python rag_only_pipeline/run_rag.py
@@ -245,13 +263,13 @@ python rag_only_pipeline/run_rag.py
 python run_agent.py --query "How many biathlon events at the 2018 Winter Olympics had more than 73 competitors?"
 ```
 
-### 4. Run the Full 100-Question Benchmark
+### 5. Run the Full 100-Question Benchmark
 The unified runner processes all 100 questions sequentially, writes incremental JSONL outputs to `results/`, scores predictions against `eval_public.jsonl`, and updates comparison reports:
 ```bash
 python run_full_100q_benchmark.py
 ```
 
-### 5. Launch the Metrics Dashboard
+### 6. Launch the Metrics Dashboard
 ```bash
 # Re-build dashboard HTML with the latest results
 python generate_dashboard.py
@@ -265,7 +283,7 @@ open metrics_dashboard.html
 xdg-open metrics_dashboard.html
 ```
 
-### 6. Running with Docker (Reproducible Container Environment)
+### 7. Running with Docker (Reproducible Container Environment)
 
 For reproducible execution without local Python dependency setup, use Docker Compose:
 

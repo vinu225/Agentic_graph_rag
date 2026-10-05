@@ -1,0 +1,163 @@
+:root {
+  /* Warm Architectural Engineering Palette from Reference Image */
+  --bg-main: #f5ebe1;          /* Warm desert parchment / cream canvas */
+  --bg-sidebar: #0f1115;       /* Deep matte charcoal architectural left spine */
+  --bg-card: #ece0d1;          /* Slightly deeper warm parchment for panels */
+  --bg-card-hover: #e4d5c3;    /* Hover state for panels */
+  --bg-card-active: #dccbb6;   /* Active selection card */
+  --border-subtle: #dac7b2;    /* Crisp subtle architectural rule */
+  --border-focus: #e75a24;     /* Industrial Orange focal border */
+
+  /* High-Contrast Technical Typography */
+  --text-primary: #141414;     /* Heavy black ink for bold technical headers */
+  --text-secondary: #4a453e;   /* Technical charcoal for body & descriptions */
+  --text-muted: #857c72;       /* Precision drafting gray */
+
+  /* Vivid Reference Colors */
+  --color-orange: #e75a24;     /* Vivid Hexagonal Industrial Orange */
+  --color-orange-bg: rgba(231, 90, 36, 0.12);
+  --color-orange-border: rgba(231, 90, 36, 0.4);
+
+  /* Pipeline Semantic Identity */
+  --color-rag: #b45309;        /* Warm ochre */
+  --color-rag-bg: rgba(180, 83, 9, 0.12);
+  --color-rag-border: rgba(180, 83, 9, 0.35);
+
+  --color-graphrag: #0284c7;   /* Blueprint Cyan */
+  --color-graphrag-bg: rgba(2, 132, 199, 0.12);
+  --color-graphrag-border: rgba(2, 132, 199, 0.35);
+
+  --color-agent: #e75a24;      /* Industrial Safety Orange */
+  --color-agent-bg: rgba(231, 90, 36, 0.12);
+  --color-agent-border: rgba(231, 90, 36, 0.4);
+
+  --color-success: #15803d;    /* Deep verification green */
+  --color-success-bg: rgba(21, 128, 61, 0.12);
+  --color-danger: #b91c1c;     /* Precision alert red */
+  --color-danger-bg: rgba(185, 28, 28, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Precision Monospace Typography */
+code, pre, .font-mono {
+  font-family: 'Space Mono', monospace;
+}
+
+/* Hexagon Bullet Marker from Reference Image */
+.hex-bullet {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-color: var(--color-orange);
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  flex-shrink: 0;
+}
+
+/* Breadcrumb Styling from Reference */
+.breadcrumb-banner {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+  color: var(--color-orange);
+  text-transform: uppercase;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Big Bold Headline from Reference Image */
+.hero-headline {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.05;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b5a48f;
+}
+
+/* Architectural Card Panels */
+.panel {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 22px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.panel:hover {
+  border-color: #c4b09b;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badge-rag {
+  background: var(--color-rag-bg);
+  color: var(--color-rag);
+  border: 1px solid var(--color-rag-border);
+}
+
+.badge-graphrag {
+  background: var(--color-graphrag-bg);
+  color: var(--color-graphrag);
+  border: 1px solid var(--color-graphrag-border);
+}
+
+.badge-agent {
+  background: var(--color-agent-bg);
+  color: var(--color-agent);
+  border: 1px solid var(--color-agent-border);
+}
+
+.badge-success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid rgba(21, 128, 61, 0.35);
+}
+
+.badge-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid rgba(185, 28, 28, 0.35);
+}
