@@ -192,8 +192,7 @@ Agentic_graph_rag/
 ├── archive/                        # Superseded early-run result files
 │   └── results_*.jsonl            # Pre-refactor results (for reference only)
 │
-├── docs/                           # Supplementary documentation
-│   ├── hackathon_guide.md         # Official TigerGraph Hackathon Guidebook
+├── docs/                           # Supplementary documentation`
 │   └── hackathon_brief.md         # Hackathon problem statement & brief
 │
 ├── tests/                          # Unit & integration tests
